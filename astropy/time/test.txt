@@ -1,0 +1,45 @@
+import numpy as np
+import astropy.units as u
+from astropy.coordinates import EarthLocation
+
+def isclose(self, other, atol=1e-8 * u.s, rtol=1e-5):
+    """
+    Determine if two Time objects are close to each other.
+
+    Parameters
+    ----------
+    other : Time
+        The other Time object to compare against.
+    atol : `~astropy.units.Quantity`
+        Absolute tolerance (default: 1e-8 seconds).
+    rtol : float
+        Relative tolerance (default: 1e-5).
+
+    Returns
+    -------
+    is_close : bool
+        True if the two times are close within the specified tolerances.
+    """
+    # Ensure both are Time instances
+    if not isinstance(other, Time):
+        raise TypeError("The 'other' parameter must be a Time object.")
+
+    # Convert to common scale (e.g., 'utc')
+    self_common = self.to_value('jd', 'float64')
+    other_common = other.to_value('jd', 'float64')
+
+    # Calculate time difference in seconds
+    time_difference = np.abs(self_common - other_common) * u.day.to(u.s)
+
+    # Adjust for EarthLocation if available
+    if self.location and other.location:
+        # Calculate geocentric distances
+        delta_loc = self.location.geocentric - other.location.geocentric
+        loc_diff_sec = np.linalg.norm(delta_loc) / 299792.458  # Speed of light in km/s
+
+        # Include location-based time difference
+        time_difference += loc_diff_sec * u.s
+
+    # Determine if within tolerance
+    is_close = time_difference <= (atol + rtol * np.abs(self_common) * u.day.to(u.s))
+    return is_close
